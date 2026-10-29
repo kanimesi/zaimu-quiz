@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -857,6 +858,11 @@ RANKS.forEach(r=>{
   rankRow.appendChild(chip);
 });
 
+const optAll = document.createElement('option');
+optAll.value = 'all';
+optAll.textContent = '全章（第2〜23章）';
+chapterSelect.appendChild(optAll);
+
 DATA.forEach((chapterObj, idx)=>{
   const opt = document.createElement('option');
   opt.value = idx;
@@ -867,10 +873,16 @@ DATA.forEach((chapterObj, idx)=>{
 chapterSelect.addEventListener('change', buildList);
 
 function buildList(){
-  const chIdx = parseInt(chapterSelect.value);
-  const chapterObj = DATA[chIdx];
-  chapterTitleMeta.textContent = '第' + chapterObj.ch + '章';
-  currentList = chapterObj.items.filter(it => activeRanks.has(it.rank));
+  let pool;
+  if(chapterSelect.value === 'all'){
+    chapterTitleMeta.textContent = '全章';
+    pool = DATA.flatMap(c => c.items);
+  } else {
+    const chapterObj = DATA[parseInt(chapterSelect.value)];
+    chapterTitleMeta.textContent = '第' + chapterObj.ch + '章';
+    pool = chapterObj.items;
+  }
+  currentList = pool.filter(it => activeRanks.has(it.rank));
   chapterCountMeta.textContent = currentList.length + '問';
   currentIndex = 0;
   showingAnswer = false;
@@ -968,3 +980,5 @@ buildList();
 </script>
 </body>
 </html>
+
+</body></html>
