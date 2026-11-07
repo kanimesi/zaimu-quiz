@@ -320,6 +320,25 @@
   .kbd-hint kbd{font-family:inherit;border:1px solid var(--line);border-radius:4px;padding:0 5px;background:#fff;}
   .sess-tag{font-size:11px;font-weight:700;color:var(--gold);}
   .card-id{min-width:0;overflow-wrap:anywhere;line-height:1.35;}
+
+  /* ==== 追加機能（復習・進捗ボード・バックアップ・テスト・読み上げ） ==== */
+  .speak-btn{border:none;background:transparent;font-size:19px;line-height:1;cursor:pointer;color:var(--steel);padding:2px 4px;}
+  .speak-btn.on{color:var(--gold);}
+  .speak-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .due-wrap{margin-top:10px;}
+  .tool-btn.active{background:var(--gold);border-color:var(--gold);color:#fff;}
+  .study-record{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--gray);}
+  .study-record b{color:var(--ink-2);font-variant-numeric:tabular-nums;}
+  .backup-msg{margin-top:8px;font-size:11.5px;color:var(--steel);min-height:1em;}
+  .test-result{margin-top:12px;padding:12px;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:8px;background:#fff;font-size:13px;color:var(--ink-2);line-height:1.8;}
+  .board-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:6px;}
+  .board-row:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .board-main{flex:1;min-width:0;}
+  .board-title{font-size:12.5px;font-weight:700;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .board-counts{font-size:11px;color:var(--gray);margin-top:2px;font-variant-numeric:tabular-nums;}
+  .board-track{height:5px;background:var(--paper-2);border-radius:4px;overflow:hidden;margin-top:5px;}
+  .board-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--steel));}
+  .board-pct{font-size:12px;font-weight:700;color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums;}
 </style>
 </head>
 <body>
@@ -339,6 +358,9 @@
     <div class="status-row" id="kindRow"></div>
     <div class="status-row" id="statusRow"></div>
     <input type="search" id="searchBox" placeholder="キーワード検索（例：減損、のれん、取得原価）" autocomplete="off">
+    <div class="tools due-wrap">
+      <button class="tool-btn" id="btnDue">📅 今日の復習（<span id="dueCount">0</span>）</button>
+    </div>
   </div>
 
   <div class="panel">
@@ -355,6 +377,7 @@
             <div class="card-id" id="cardId">論証2-1</div>
           </div>
           <div class="card-top-right">
+            <button class="speak-btn" id="btnSpeak" title="読み上げ" aria-label="読み上げ">🔊</button>
             <button class="star-btn" id="btnStar" title="ブックマーク（B）" aria-label="ブックマーク">☆</button>
             <div class="mode-tag q" id="modeTag">問題</div>
           </div>
@@ -375,6 +398,13 @@
       <button class="btn shuffle" id="btnShuffle" title="シャッフル">⤭</button>
       <button class="btn next" id="btnNext">次へ →</button>
     </div>
+    <div class="test-result" id="testResultPanel" style="display:none;">
+      <div id="testResultText"></div>
+      <div class="tools">
+        <button class="tool-btn" id="btnTestReviewRetry">△だけ見直す</button>
+        <button class="tool-btn" id="btnTestExit">テストを終了</button>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
@@ -386,12 +416,29 @@
       <span>未学習 <b id="cntNew">414</b></span>
       <span>★ <b id="cntStar">0</b></span>
     </div>
+    <div class="study-record" id="studyRecord">
+      <span>今日解いた数 <b id="studyToday">0</b></span>
+      <span>連続学習日数 <b id="studyStreak">0</b>日</span>
+      <span>復習期限が来た問題 <b id="studyDue">0</b></span>
+    </div>
     <label class="opt-row"><input type="checkbox" id="optAuto"> 「覚えた／要復習」を押したら自動で次へ進む</label>
     <div class="tools">
       <button class="tool-btn" id="btnRandom">🎲 ランダム10問</button>
+      <button class="tool-btn" id="btnTestResult" style="display:none;">📊 結果を見る</button>
       <button class="tool-btn danger" id="btnReset">進捗をリセット</button>
     </div>
+    <div class="tools">
+      <button class="tool-btn" id="btnExport">成績を書き出し（バックアップ）</button>
+      <button class="tool-btn" id="btnImport">成績を読み込む</button>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none;">
+    </div>
+    <div class="backup-msg" id="backupMsg"></div>
     <div class="kbd-hint">操作：カードを左右にスワイプで前後移動。キーボードは <kbd>←</kbd><kbd>→</kbd> 移動、<kbd>Space</kbd> 解答の表示、<kbd>1</kbd> 要復習、<kbd>2</kbd> 覚えた、<kbd>B</kbd> ブックマーク。進捗はこのブラウザに自動保存されます。</div>
+  </div>
+
+  <div class="panel" id="chapterBoardPanel">
+    <div class="field-label">章ごとの進捗（タップでその章に移動）</div>
+    <div id="chapterBoard"></div>
   </div>
 
   <footer class="note">
@@ -1093,6 +1140,9 @@ const card=$('card'), rankBadge=$('rankBadge'), cardId=$('cardId'), modeTag=$('m
 const commentBox=$('commentBox'), cardHint=$('cardHint'), progressFill=$('progressFill'), progressCount=$('progressCount');
 const btnPrev=$('btnPrev'), btnNext=$('btnNext'), btnShuffle=$('btnShuffle'), selfCheck=$('selfCheck');
 const btnGot=$('btnGot'), btnRetry=$('btnRetry'), btnStar=$('btnStar'), btnRandom=$('btnRandom'), btnReset=$('btnReset'), optAuto=$('optAuto');
+const btnDue=$('btnDue'), btnSpeak=$('btnSpeak'), btnExport=$('btnExport'), btnImport=$('btnImport'), importFile=$('importFile'), backupMsg=$('backupMsg');
+const btnTestResult=$('btnTestResult'), testResultPanel=$('testResultPanel'), testResultText=$('testResultText'), btnTestReviewRetry=$('btnTestReviewRetry'), btnTestExit=$('btnTestExit');
+const chapterBoard=$('chapterBoard');
 
 const STORE_KEY='zaimu-ronsho-ichimon-v2';
 const TOTAL = DATA.reduce((n,c)=>n+c.items.length,0);
@@ -1107,6 +1157,13 @@ let statusMap={};   // id -> 'got' | 'retry'
 let stars={};       // id -> true
 let autoNext=false;
 let currentList=[], currentIndex=0, showingAnswer=false, randomMode=false;
+let markInfo={};    // id -> {d:'YYYY-MM-DD', due:'YYYY-MM-DD', s:'got'|'retry'}
+let studyLog={};    // 'YYYY-MM-DD' -> [id,...] その日に判定した問題（重複なし）
+let dueMode=false;
+let testMode=false, testIds=[];
+let lastItemId=null;
+let speaking=false, currentUtter=null;
+const ALL_IDS=new Set(DATA.flatMap(c=>c.items.map(i=>i.id)));
 
 /* ---- 保存（localStorage が使えない環境でも動く） ---- */
 function load(){
@@ -1115,12 +1172,18 @@ function load(){
     return JSON.parse(raw);
   }catch(e){ return null; }
 }
+function collectState(){
+  return {
+    status:statusMap, stars:stars, ch:chapterSelect.value,
+    ranks:[...activeRanks], st:statusFilter, kind:kindFilter, auto:autoNext,
+    markInfo:markInfo, studyLog:studyLog,
+    lastId:lastItemId, lastIndex:currentIndex,
+    test:testMode?{ids:testIds.slice()}:null
+  };
+}
 function save(){
   try{
-    localStorage.setItem(STORE_KEY, JSON.stringify({
-      status:statusMap, stars:stars, ch:chapterSelect.value,
-      ranks:[...activeRanks], st:statusFilter, kind:kindFilter, auto:autoNext
-    }));
+    localStorage.setItem(STORE_KEY, JSON.stringify(collectState()));
   }catch(e){}
 }
 
@@ -1197,6 +1260,8 @@ function refreshStats(){
   $('cntGot').textContent=c.got; $('cntRetry').textContent=c.retry; $('cntNew').textContent=c.fresh;
   $('cntStar').textContent=Object.keys(stars).filter(k=>stars[k]).length;
   refreshChapterLabels();
+  updateStudyUI();
+  renderChapterBoard();
 }
 
 /* ---- 絞り込み ---- */
@@ -1213,9 +1278,11 @@ function passStatus(it){
   }
 }
 function buildList(){
-  randomMode=false;
+  randomMode=false; testMode=false; testIds=[]; updateTestUI(); stopSpeech();
   let pool;
-  if(chapterSelect.value==='all'){
+  if(dueMode){
+    chapterTitleMeta.textContent='今日の復習'; pool=collectDueItems();
+  }else if(chapterSelect.value==='all'){
     chapterTitleMeta.textContent='全章'; pool=DATA.flatMap(c=>c.items);
   }else{
     const c=DATA[parseInt(chapterSelect.value)];
@@ -1223,7 +1290,7 @@ function buildList(){
   }
   const terms=norm(searchBox.value).split(/\s+/).filter(Boolean);
   currentList=pool.filter(it=>activeRanks.has(it.rank)&&passKind(it)&&passStatus(it)&&terms.every(t=>haystack(it).includes(t)));
-  chapterCountMeta.textContent=currentList.length+'問';
+  chapterCountMeta.textContent=currentList.length+'問'+(dueMode?'（復習）':'');
   currentIndex=0; showingAnswer=false; renderCard();
 }
 chapterSelect.addEventListener('change',()=>{buildList();save();});
@@ -1238,12 +1305,13 @@ function renderCard(){
     cardBody.className='card-body question';
     cardBody.textContent='条件に合う論証がありません。重要度・学習状況・キーワードの条件を変更してください。';
     commentBox.style.display='none'; cardHint.textContent=''; selfCheck.style.display='none';
-    btnStar.style.visibility='hidden';
+    btnStar.style.visibility='hidden'; btnSpeak.style.visibility='hidden';
     progressFill.style.width='0%'; progressCount.textContent='0 / 0';
     btnPrev.disabled=true; btnNext.disabled=true; return;
   }
   const item=currentList[currentIndex];
-  btnStar.style.visibility='visible';
+  lastItemId=item.id;
+  btnStar.style.visibility='visible'; btnSpeak.style.visibility='visible';
   btnStar.textContent=stars[item.id]?'★':'☆'; btnStar.classList.toggle('on',!!stars[item.id]);
   cardId.textContent=(item.label||('論証'+item.id))+(randomMode?'　🎲':'');
   rankBadge.textContent=item.rank; rankBadge.className='rank-badge '+item.rank;
@@ -1270,15 +1338,18 @@ function flip(){ if(!currentList.length) return; showingAnswer=!showingAnswer; r
 function go(d){
   const n=currentIndex+d;
   if(n<0||n>=currentList.length) return;
-  currentIndex=n; showingAnswer=false; renderCard();
+  stopSpeech();
+  currentIndex=n; showingAnswer=false; lastItemId=currentList[currentIndex].id; renderCard(); save();
 }
 function mark(kind){
   if(!currentList.length||!showingAnswer) return;
   const item=currentList[currentIndex];
   statusMap[item.id]=statusMap[item.id]===kind?null:kind;
-  if(!statusMap[item.id]) delete statusMap[item.id];
+  if(!statusMap[item.id]){ delete statusMap[item.id]; delete markInfo[item.id]; }
+  else recordMark(item.id,kind);
   save(); refreshStats(); renderCard();
   if(autoNext&&statusMap[item.id]) go(1);
+  if(testMode&&testIds.length&&testIds.every(id=>statusMap[id])) showTestResult();
 }
 function toggleStar(){
   if(!currentList.length) return;
@@ -1286,7 +1357,7 @@ function toggleStar(){
   if(stars[id]) delete stars[id]; else stars[id]=true;
   save(); refreshStats(); renderCard();
 }
-card.addEventListener('click',e=>{ if(e.target.closest('.self-check,.star-btn')) return; flip(); });
+card.addEventListener('click',e=>{ if(e.target.closest('.self-check,.star-btn,.speak-btn')) return; flip(); });
 btnStar.addEventListener('click',e=>{e.stopPropagation();toggleStar();});
 btnPrev.addEventListener('click',()=>go(-1));
 btnNext.addEventListener('click',()=>go(1));
@@ -1294,7 +1365,7 @@ btnGot.addEventListener('click',()=>mark('got'));
 btnRetry.addEventListener('click',()=>mark('retry'));
 btnShuffle.addEventListener('click',()=>{
   for(let i=currentList.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[currentList[i],currentList[j]]=[currentList[j],currentList[i]];}
-  currentIndex=0; showingAnswer=false; renderCard();
+  currentIndex=0; showingAnswer=false; renderCard(); save();
 });
 optAuto.addEventListener('change',()=>{autoNext=optAuto.checked;save();});
 
@@ -1303,9 +1374,11 @@ btnRandom.addEventListener('click',()=>{
   buildList();
   const pool=currentList.slice();
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
-  currentList=pool.slice(0,10); randomMode=true;
+  currentList=pool.slice(0,10); randomMode=true; testMode=true; testIds=currentList.map(it=>it.id);
+  testResultPanel.style.display='none';
   chapterCountMeta.textContent=currentList.length+'問（ランダム）';
-  currentIndex=0; showingAnswer=false; renderCard();
+  currentIndex=0; showingAnswer=false; lastItemId=currentList.length?currentList[0].id:null;
+  updateTestUI(); renderCard(); save();
 });
 
 /* リセット：confirm() が使えないため、2回押しで確定 */
@@ -1318,7 +1391,10 @@ btnReset.addEventListener('click',()=>{
   }
   clearTimeout(resetTimer);
   btnReset.classList.remove('armed'); btnReset.textContent='進捗をリセット';
-  statusMap={}; stars={}; save(); refreshStats(); buildList();
+  statusMap={}; stars={}; markInfo={}; studyLog={}; lastItemId=null;
+  dueMode=false; btnDue.classList.remove('active');
+  testMode=false; testIds=[]; testResultPanel.style.display='none'; updateTestUI(); stopSpeech();
+  save(); refreshStats(); buildList();
 });
 
 /* キーボード */
@@ -1343,11 +1419,233 @@ card.addEventListener('touchend',e=>{
   if(Math.abs(dx)>60&&Math.abs(dy)<45) go(dx<0?1:-1);
 },{passive:true});
 
+
+/* ==================== 追加機能 ==================== */
+/* ---- 日付ユーティリティ（ローカル日付 YYYY-MM-DD） ---- */
+function localDateStr(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+dd;
+}
+function todayStr(){ return localDateStr(new Date()); }
+function addDaysStr(dateStr,n){
+  const p=String(dateStr).split('-').map(Number);
+  if(p.length!==3||p.some(isNaN)) return dateStr;
+  return localDateStr(new Date(p[0],p[1]-1,p[2]+n));
+}
+function isDateStr(s){ return typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s); }
+
+/* ---- 1. 復習スケジュール＋学習記録 ---- */
+function recordMark(id,kind){
+  const today=todayStr();
+  markInfo[id]={d:today, due:addDaysStr(today, kind==='retry'?1:7), s:kind};
+  if(!Array.isArray(studyLog[today])) studyLog[today]=[];
+  if(!studyLog[today].includes(id)) studyLog[today].push(id);
+}
+function isDueItem(it,today){
+  const mi=markInfo[it.id];
+  return !!(mi&&isDateStr(mi.due)&&mi.due<=(today||todayStr())&&statusMap[it.id]);
+}
+function collectDueItems(today){
+  return DATA.flatMap(c=>c.items).filter(it=>isDueItem(it,today));
+}
+function computeStreak(){
+  let streak=0;
+  let cur=todayStr();
+  if(!(Array.isArray(studyLog[cur])&&studyLog[cur].length)) cur=addDaysStr(cur,-1);
+  while(Array.isArray(studyLog[cur])&&studyLog[cur].length){ streak++; cur=addDaysStr(cur,-1); }
+  return streak;
+}
+function updateStudyUI(){
+  const due=collectDueItems();
+  const dc=$('dueCount'); if(dc) dc.textContent=due.length;
+  const sd=$('studyDue'); if(sd) sd.textContent=due.length;
+  const st=$('studyToday'); if(st){ const a=studyLog[todayStr()]; st.textContent=Array.isArray(a)?a.length:0; }
+  const ss=$('studyStreak'); if(ss) ss.textContent=computeStreak();
+  if(btnDue) btnDue.classList.toggle('active',dueMode);
+}
+btnDue.addEventListener('click',()=>{
+  dueMode=!dueMode;
+  btnDue.classList.toggle('active',dueMode);
+  buildList(); save();
+});
+
+/* ---- 3. 章ごとの進捗ボード ---- */
+function renderChapterBoard(){
+  if(!chapterBoard) return;
+  chapterBoard.innerHTML='';
+  DATA.forEach((c,idx)=>{
+    const cnt=countStatus(c.items);
+    const done=cnt.got+cnt.retry;
+    const pct=c.items.length?Math.round(done/c.items.length*100):0;
+    const row=document.createElement('button');
+    row.type='button'; row.className='board-row';
+    row.dataset.chapter=String(idx); row.dataset.total=String(c.items.length);
+    row.dataset.got=String(cnt.got); row.dataset.retry=String(cnt.retry); row.dataset.fresh=String(cnt.fresh);
+    const main=document.createElement('div'); main.className='board-main';
+    const title=document.createElement('div'); title.className='board-title';
+    title.textContent='第'+c.ch+'章　'+c.title;
+    const counts=document.createElement('div'); counts.className='board-counts';
+    counts.textContent='全'+c.items.length+'問　◎'+cnt.got+'　△'+cnt.retry+'　未学習'+cnt.fresh;
+    const track=document.createElement('div'); track.className='board-track';
+    const fill=document.createElement('div'); fill.className='board-fill'; fill.style.width=pct+'%';
+    track.appendChild(fill); main.appendChild(title); main.appendChild(counts); main.appendChild(track);
+    const pctEl=document.createElement('div'); pctEl.className='board-pct'; pctEl.textContent=pct+'%';
+    row.appendChild(main); row.appendChild(pctEl);
+    row.addEventListener('click',()=>{
+      dueMode=false; btnDue.classList.remove('active');
+      chapterSelect.value=String(idx);
+      buildList(); save();
+      if(card&&card.scrollIntoView) card.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+    chapterBoard.appendChild(row);
+  });
+}
+
+/* ---- 4. 成績のバックアップ ---- */
+function sanitizeState(st){
+  if(!st||typeof st!=='object'||Array.isArray(st)) return null;
+  const out={status:{},stars:{},markInfo:{},studyLog:{},ch:st.ch!=null?st.ch:'all',
+    ranks:Array.isArray(st.ranks)?st.ranks.filter(r=>RANKS.includes(r)):null,
+    st:STATUS_DEFS.some(d=>d[0]===st.st)?st.st:'all',
+    kind:KIND_DEFS.some(d=>d[0]===st.kind)?st.kind:'all',
+    auto:!!st.auto, lastId:(typeof st.lastId==='string'&&ALL_IDS.has(st.lastId))?st.lastId:null,
+    lastIndex:(typeof st.lastIndex==='number'&&isFinite(st.lastIndex))?st.lastIndex:0};
+  if(st.status&&typeof st.status==='object'){
+    Object.keys(st.status).forEach(id=>{ if(ALL_IDS.has(id)&&(st.status[id]==='got'||st.status[id]==='retry')) out.status[id]=st.status[id]; });
+  }
+  if(st.stars&&typeof st.stars==='object'){
+    Object.keys(st.stars).forEach(id=>{ if(ALL_IDS.has(id)&&st.stars[id]) out.stars[id]=true; });
+  }
+  if(st.markInfo&&typeof st.markInfo==='object'){
+    Object.keys(st.markInfo).forEach(id=>{
+      const mi=st.markInfo[id];
+      if(ALL_IDS.has(id)&&mi&&isDateStr(mi.d)&&isDateStr(mi.due)&&(mi.s==='got'||mi.s==='retry')) out.markInfo[id]={d:mi.d,due:mi.due,s:mi.s};
+    });
+  }
+  if(st.studyLog&&typeof st.studyLog==='object'){
+    Object.keys(st.studyLog).forEach(d=>{
+      if(isDateStr(d)&&Array.isArray(st.studyLog[d])) out.studyLog[d]=[...new Set(st.studyLog[d].filter(id=>ALL_IDS.has(id)))];
+    });
+  }
+  return out;
+}
+function handleImportObject(st){
+  const clean=sanitizeState(st);
+  if(!clean){ if(backupMsg) backupMsg.textContent='読み込みに失敗しました：ファイルの形式が正しくありません。'; return false; }
+  statusMap=clean.status; stars=clean.stars; markInfo=clean.markInfo; studyLog=clean.studyLog; lastItemId=clean.lastId;
+  if(clean.ranks&&clean.ranks.length){
+    activeRanks=new Set(clean.ranks);
+    rankRow.querySelectorAll('.rank-chip').forEach(c=>c.classList.toggle('active',activeRanks.has(c.dataset.rank)));
+  }
+  statusFilter=clean.st;
+  statusRow.querySelectorAll('.st-chip').forEach(x=>x.classList.toggle('active',x.dataset.st===statusFilter));
+  kindFilter=clean.kind;
+  kindRow.querySelectorAll('.st-chip').forEach(x=>x.classList.toggle('active',x.dataset.kind===kindFilter));
+  autoNext=clean.auto; optAuto.checked=autoNext;
+  dueMode=false; btnDue.classList.remove('active');
+  if([...chapterSelect.options].some(o=>o.value===String(clean.ch))) chapterSelect.value=String(clean.ch); else chapterSelect.value='all';
+  refreshStats();
+  const resumeId=lastItemId;
+  buildList();
+  if(resumeId){
+    const idx=currentList.findIndex(it=>it.id===resumeId);
+    if(idx>=0){ currentIndex=idx; showingAnswer=false; renderCard(); }
+  }
+  save();
+  if(backupMsg) backupMsg.textContent='成績を読み込みました（◎'+countStatus(DATA.flatMap(c=>c.items)).got+'／△'+countStatus(DATA.flatMap(c=>c.items)).retry+'）。';
+  return true;
+}
+btnExport.addEventListener('click',()=>{
+  const data=JSON.stringify(collectState(),null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='zaimu-quiz-backup-'+todayStr()+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch(e){} },1000);
+  if(backupMsg) backupMsg.textContent='成績を書き出しました：'+a.download;
+});
+btnImport.addEventListener('click',()=>{ importFile.click(); });
+importFile.addEventListener('change',()=>{
+  const f=importFile.files&&importFile.files[0];
+  if(!f) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{ handleImportObject(JSON.parse(String(reader.result))); }
+    catch(e){ if(backupMsg) backupMsg.textContent='読み込みに失敗しました：JSONとして読み取れませんでした。'; }
+    importFile.value='';
+  };
+  reader.onerror=()=>{ if(backupMsg) backupMsg.textContent='読み込みに失敗しました：ファイルを読めませんでした。'; importFile.value=''; };
+  reader.readAsText(f);
+});
+
+/* ---- 5. ミニテスト結果まとめ ---- */
+function computeTestCounts(){
+  let got=0,retry=0;
+  testIds.forEach(id=>{ if(statusMap[id]==='got')got++; else if(statusMap[id]==='retry')retry++; });
+  return {got:got,retry:retry,fresh:testIds.length-got-retry,total:testIds.length};
+}
+function updateTestUI(){
+  if(btnTestResult) btnTestResult.style.display=testMode?'':'none';
+  if(!testMode&&testResultPanel) testResultPanel.style.display='none';
+}
+function showTestResult(){
+  if(!testMode||!testIds.length) return;
+  const c=computeTestCounts();
+  testResultText.textContent='ミニテスト結果（'+c.total+'問）：◎ 覚えた '+c.got+'問／△ 要復習 '+c.retry+'問／未判定 '+c.fresh+'問';
+  testResultPanel.style.display='block';
+}
+function exitTestMode(){
+  testMode=false; testIds=[]; randomMode=false;
+  testResultPanel.style.display='none'; updateTestUI();
+  buildList(); save();
+}
+btnTestResult.addEventListener('click',showTestResult);
+btnTestReviewRetry.addEventListener('click',()=>{
+  if(!testMode) return;
+  const byId={}; DATA.flatMap(c=>c.items).forEach(it=>{byId[it.id]=it;});
+  const retryItems=testIds.map(id=>byId[id]).filter(it=>it&&statusMap[it.id]==='retry');
+  if(!retryItems.length){ testResultText.textContent='このテストに△の問題はありませんでした。'; return; }
+  currentList=retryItems; currentIndex=0; showingAnswer=false; renderCard();
+  chapterCountMeta.textContent=currentList.length+'問（テストの△）';
+});
+btnTestExit.addEventListener('click',exitTestMode);
+
+/* ---- 6. 読み上げ ---- */
+function stopSpeech(){
+  speaking=false;
+  try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
+  if(btnSpeak){ btnSpeak.classList.remove('on'); btnSpeak.textContent='🔊'; }
+}
+function speakCurrent(){
+  if(!currentList.length) return;
+  if(!window.speechSynthesis||typeof SpeechSynthesisUtterance==='undefined'){
+    if(btnSpeak) btnSpeak.textContent='🔇';
+    return;
+  }
+  if(speaking){ stopSpeech(); return; }
+  const item=currentList[currentIndex];
+  let text=item.q;
+  if(showingAnswer){ text+='。解答。'+item.a; if(item.cm) text+='。ポイント。'+item.cm; }
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='ja-JP'; u.rate=1.0;
+  currentUtter=u;
+  u.onend=()=>{ speaking=false; if(btnSpeak){btnSpeak.classList.remove('on'); btnSpeak.textContent='🔊';} };
+  u.onerror=u.onend;
+  speaking=true;
+  if(btnSpeak){ btnSpeak.classList.add('on'); btnSpeak.textContent='⏹'; }
+  try{ window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }
+  catch(e){ speaking=false; if(btnSpeak){btnSpeak.classList.remove('on'); btnSpeak.textContent='🔊';} }
+}
+btnSpeak.addEventListener('click',e=>{ e.stopPropagation(); speakCurrent(); });
+
 /* ---- 初期化：保存された状態を復元 ---- */
 (function init(){
   const st=load();
   if(st){
     statusMap=st.status||{}; stars=st.stars||{};
+    const cleanInit=sanitizeState(st);
+    if(cleanInit){ markInfo=cleanInit.markInfo; studyLog=cleanInit.studyLog; lastItemId=cleanInit.lastId; }
     if(Array.isArray(st.ranks)&&st.ranks.length){
       activeRanks=new Set(st.ranks.filter(r=>RANKS.includes(r)));
       if(!activeRanks.size) activeRanks=new Set(RANKS);
@@ -1366,9 +1664,15 @@ card.addEventListener('touchend',e=>{
   refreshStats();
   if(st&&st.ch!=null&&[...chapterSelect.options].some(o=>o.value===String(st.ch))) chapterSelect.value=String(st.ch);
   else chapterSelect.value='all';
+  const resumeId=lastItemId;
   buildList();
+  /* 2. 続きから再開：保存した問題が今のリストにあればその位置に戻る */
+  if(resumeId){
+    const idx=currentList.findIndex(it=>it.id===resumeId);
+    if(idx>=0){ currentIndex=idx; showingAnswer=false; renderCard(); save(); }
+  }
+  updateTestUI();
 })();
 </script>
 </body>
 </html>
-
