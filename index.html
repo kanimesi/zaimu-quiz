@@ -339,6 +339,26 @@
   .board-track{height:5px;background:var(--paper-2);border-radius:4px;overflow:hidden;margin-top:5px;}
   .board-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--steel));}
   .board-pct{font-size:12px;font-weight:700;color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  /* ==== レイアウト見直し（サマリー／折りたたみ絞り込み／テストバー／管理パネル） ==== */
+  .summary-panel .progress-row{margin-top:2px;}
+  .summary-panel .study-record{margin-top:10px;}
+  .summary-panel .due-wrap{margin-top:12px;}
+  .tool-btn.due-primary{background:var(--gold);border-color:var(--gold);color:#fff;font-size:13.5px;padding:12px 8px;}
+  .tool-btn.due-primary.active{background:var(--gold-dim);border-color:var(--gold-dim);box-shadow:0 0 0 2px var(--ink-2) inset;}
+  .filter-head{display:flex;align-items:center;gap:12px;padding:12px 16px;}
+  .filter-toggle{flex:0 0 auto;padding:9px 14px;border-radius:9px;border:1.5px solid var(--gold);background:#fff;color:var(--ink-2);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+  .filter-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .filter-summary{flex:1;min-width:0;font-size:11.5px;color:var(--gray);line-height:1.55;}
+  #filterPanel[hidden]{display:none!important;}
+  .test-bar{display:flex;align-items:center;gap:8px;margin-top:14px;background:var(--ink-2);color:var(--paper);border-radius:12px;padding:10px 12px;box-shadow:0 14px 30px rgba(0,0,0,0.25);}
+  .test-bar-text{flex:1;min-width:0;font-size:12.5px;font-weight:700;letter-spacing:0.02em;}
+  .test-bar .tool-btn{flex:0 1 auto;min-width:0;white-space:nowrap;}
+  .panel #chapterBoardPanel{box-shadow:none;border:1px solid var(--line);background:rgba(255,255,255,0.55);margin-top:16px;padding:12px;}
+  .reset-row{display:flex;margin-top:20px;padding-top:16px;border-top:1px solid var(--line);}
+  .reset-row .tool-btn{flex:1;}
+  #cardPanel .stage{margin-top:0;}
+  .kbd-hint{display:none;}
+  @media (hover:hover) and (pointer:fine){ .kbd-hint{display:block;} }
 </style>
 </head>
 <body>
@@ -347,28 +367,47 @@
   <header class="top">
     <div class="eyebrow">CPA · 財務会計論（理論）</div>
     <h1>ポケット論証集 一問一答</h1>
-    <p class="sub">渡辺レジュメ／論文対策講義（2026年8月目標）全414論証＋過去問check223問収録<br>タップして解答を表示・非表示できます</p>
+    <p class="sub">渡辺レジュメ／論文対策講義（2026年8月目標）全414論証＋過去問check223問収録</p>
   </header>
 
-  <div class="panel">
-    <div class="field-label">章を選択</div>
+  <div class="panel summary-panel" id="summaryPanel">
+    <div class="field-label">今日のまとめ</div>
+    <div class="progress-row">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-count" id="progressCount">0 / 0</div>
+    </div>
+    <div class="study-record" id="studyRecord">
+      <span>今日解いた数 <b id="studyToday">0</b></span>
+      <span>連続学習日数 <b id="studyStreak">0</b>日</span>
+      <span>復習期限が来た問題 <b id="studyDue">0</b></span>
+    </div>
+    <div class="tools due-wrap">
+      <button class="tool-btn due-primary" id="btnDue">📅 今日の復習（<span id="dueCount">0</span>）</button>
+    </div>
+  </div>
+
+  <div class="panel filter-head" id="filterHead">
+    <button class="filter-toggle" id="filterToggle" type="button" aria-expanded="false" aria-controls="filterPanel">🔍 絞り込み</button>
+    <div class="filter-summary" id="filterSummary"></div>
+  </div>
+
+  <div class="panel" id="filterPanel" hidden>
+        <div class="field-label">章を選択</div>
     <select id="chapterSelect"></select>
     <div class="chapter-meta"><span id="chapterTitleMeta"></span><b id="chapterCountMeta"></b></div>
     <div class="rank-row" id="rankRow"></div>
     <div class="status-row" id="kindRow"></div>
     <div class="status-row" id="statusRow"></div>
     <input type="search" id="searchBox" placeholder="キーワード検索（例：減損、のれん、取得原価）" autocomplete="off">
-    <div class="tools due-wrap">
-      <button class="tool-btn" id="btnDue">📅 今日の復習（<span id="dueCount">0</span>）</button>
-    </div>
   </div>
 
-  <div class="panel">
-    <div class="progress-row">
-      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-count" id="progressCount">0 / 0</div>
-    </div>
+  <div class="test-bar" id="testBar" style="display:none;">
+    <span class="test-bar-text" id="testBarText">テスト中　0 / 0問判定済み</span>
+    <button class="tool-btn" id="btnTestResult" style="display:none;">📊 結果を見る</button>
+    <button class="tool-btn" id="btnTestBarExit" type="button">テストを終了</button>
+  </div>
 
+  <div class="panel" id="cardPanel">
     <div class="stage">
       <div class="card" id="card">
         <div class="card-top">
@@ -387,7 +426,7 @@
         <div class="card-hint" id="cardHint">タップして解答を見る</div>
       </div>
     </div>
-
+    
     <div class="self-check" id="selfCheck" style="display:none;">
       <button class="retry" id="btnRetry">△ 要復習</button>
       <button class="got" id="btnGot">◎ 覚えた</button>
@@ -407,7 +446,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="managementPanel">
     <div class="field-label">学習状況（全<span id="totalLabel">0</span>問）</div>
     <div class="stat-bar" id="statBar"><i class="sg" id="sbGot"></i><i class="sr" id="sbRetry"></i></div>
     <div class="stat-legend">
@@ -416,33 +455,30 @@
       <span>未学習 <b id="cntNew">414</b></span>
       <span>★ <b id="cntStar">0</b></span>
     </div>
-    <div class="study-record" id="studyRecord">
-      <span>今日解いた数 <b id="studyToday">0</b></span>
-      <span>連続学習日数 <b id="studyStreak">0</b>日</span>
-      <span>復習期限が来た問題 <b id="studyDue">0</b></span>
-    </div>
     <label class="opt-row"><input type="checkbox" id="optAuto"> 「覚えた／要復習」を押したら自動で次へ進む</label>
-    <div class="tools">
+    <div class="tools" id="randomRow">
       <button class="tool-btn" id="btnRandom">🎲 ランダム10問</button>
-      <button class="tool-btn" id="btnTestResult" style="display:none;">📊 結果を見る</button>
-      <button class="tool-btn danger" id="btnReset">進捗をリセット</button>
     </div>
-    <div class="tools">
+    <div class="tools" id="backupRow">
       <button class="tool-btn" id="btnExport">成績を書き出し（バックアップ）</button>
       <button class="tool-btn" id="btnImport">成績を読み込む</button>
       <input type="file" id="importFile" accept="application/json,.json" style="display:none;">
     </div>
     <div class="backup-msg" id="backupMsg"></div>
     <div class="kbd-hint">操作：カードを左右にスワイプで前後移動。キーボードは <kbd>←</kbd><kbd>→</kbd> 移動、<kbd>Space</kbd> 解答の表示、<kbd>1</kbd> 要復習、<kbd>2</kbd> 覚えた、<kbd>B</kbd> ブックマーク。進捗はこのブラウザに自動保存されます。</div>
-  </div>
 
-  <div class="panel" id="chapterBoardPanel">
-    <div class="field-label">章ごとの進捗（タップでその章に移動）</div>
-    <div id="chapterBoard"></div>
+    <div class="panel" id="chapterBoardPanel">
+      <div class="field-label">章ごとの進捗（タップでその章に移動）</div>
+      <div id="chapterBoard"></div>
+    </div>
+
+    <div class="reset-row" id="resetRow">
+      <button class="tool-btn danger" id="btnReset">進捗をリセット</button>
+    </div>
   </div>
 
   <footer class="note">
-    全414論証（第2〜23章）と、ポケット論証集に載っている過去問check223問を収録しています。過去問は「種別」の切り替えで出し分けできます。重要度A・B・C・Dはバッジの色で区別でき、上の絞り込みで切り替えられます。
+    全414論証（第2〜23章）＋過去問check223問を収録。重要度はバッジの色で区別でき、絞り込みで切り替えられます。
   </footer>
 </div>
 
@@ -1638,6 +1674,60 @@ function speakCurrent(){
   catch(e){ speaking=false; if(btnSpeak){btnSpeak.classList.remove('on'); btnSpeak.textContent='🔊';} }
 }
 btnSpeak.addEventListener('click',e=>{ e.stopPropagation(); speakCurrent(); });
+
+
+/* ==================== レイアウト見直し（サマリー／絞り込み折りたたみ／テストバー） ==================== */
+let filterOpen=false;
+const filterToggleEl=$('filterToggle'), filterPanelEl=$('filterPanel');
+function setFilterOpen(open){
+  filterOpen=!!open;
+  if(filterPanelEl) filterPanelEl.hidden=!filterOpen;
+  if(filterToggleEl) filterToggleEl.setAttribute('aria-expanded', filterOpen?'true':'false');
+}
+if(filterToggleEl) filterToggleEl.addEventListener('click',()=>setFilterOpen(!filterOpen));
+setFilterOpen(false);
+
+function updateFilterSummary(){
+  const el=$('filterSummary'); if(!el) return;
+  const parts=[];
+  if(dueMode) parts.push('今日の復習モード中');
+  if(chapterSelect.value==='all') parts.push('全章');
+  else{ const c=DATA[parseInt(chapterSelect.value)]; if(c) parts.push('第'+c.ch+'章 '+c.title); }
+  parts.push(activeRanks.size===RANKS.length?'重要度すべて':'重要度'+[...activeRanks].join('・'));
+  const kd=KIND_DEFS.find(d=>d[0]===kindFilter); parts.push(kd?kd[1]:'種別：すべて');
+  const sd=STATUS_DEFS.find(d=>d[0]===statusFilter); parts.push(statusFilter==='all'?'状態：すべて':(sd?sd[1]:'すべて'));
+  const kw=searchBox.value.trim(); if(kw) parts.push('検索「'+kw+'」');
+  el.textContent=parts.join(' ／ ');
+}
+
+function updateTestLayout(){
+  const bar=$('testBar'); if(!bar) return;
+  const on=!!testMode;
+  bar.style.display=on?'flex':'none';
+  if(on){
+    const c=computeTestCounts();
+    const tt=$('testBarText'); if(tt) tt.textContent='🎲 テスト中　'+(c.got+c.retry)+' / '+c.total+'問判定済み';
+  }
+  const fh=$('filterHead'); if(fh) fh.style.display=on?'none':'';
+  if(filterPanelEl){
+    if(on){ filterPanelEl.style.display='none'; }
+    else{ filterPanelEl.style.display=''; filterPanelEl.hidden=!filterOpen; }
+  }
+  ['randomRow','backupRow','resetRow'].forEach(id=>{
+    const el=$(id); if(el) el.style.display=on?'none':'';
+  });
+}
+
+const btnTestBarExitEl=$('btnTestBarExit');
+if(btnTestBarExitEl) btnTestBarExitEl.addEventListener('click',()=>{ exitTestMode(); });
+
+/* 既存関数への最小フック：絞り込み要約とテスト時レイアウトを常に同期する */
+const _origUpdateTestUI = updateTestUI;
+updateTestUI = function(){ _origUpdateTestUI(); updateTestLayout(); };
+const _origBuildList = buildList;
+buildList = function(){ _origBuildList(); updateFilterSummary(); updateTestLayout(); };
+const _origMark = mark;
+mark = function(kind){ _origMark(kind); updateTestLayout(); };
 
 /* ---- 初期化：保存された状態を復元 ---- */
 (function init(){
