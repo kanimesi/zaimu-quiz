@@ -1194,6 +1194,7 @@ let stars={};       // id -> true
 let autoNext=false;
 let currentList=[], currentIndex=0, showingAnswer=false, randomMode=false;
 let markInfo={};    // id -> {d:'YYYY-MM-DD', due:'YYYY-MM-DD', s:'got'|'retry'}
+let gradeHist={};   // id -> [{g:'got'|'retry', d:'YYYY-MM-DD'|''}, ...] 評価履歴（直近8件・復習間隔の段階化に使用）
 let studyLog={};    // 'YYYY-MM-DD' -> [id,...] その日に判定した問題（重複なし）
 let dueMode=false;
 let testMode=false, testIds=[];
@@ -1212,7 +1213,7 @@ function collectState(){
   return {
     status:statusMap, stars:stars, ch:chapterSelect.value,
     ranks:[...activeRanks], st:statusFilter, kind:kindFilter, auto:autoNext,
-    markInfo:markInfo, studyLog:studyLog,
+    markInfo:markInfo, gradeHist:gradeHist, studyLog:studyLog,
     lastId:lastItemId, lastIndex:currentIndex,
     test:testMode?{ids:testIds.slice()}:null
   };
@@ -1380,9 +1381,17 @@ function go(d){
 function mark(kind){
   if(!currentList.length||!showingAnswer) return;
   const item=currentList[currentIndex];
-  statusMap[item.id]=statusMap[item.id]===kind?null:kind;
-  if(!statusMap[item.id]){ delete statusMap[item.id]; delete markInfo[item.id]; }
-  else recordMark(item.id,kind);
+  if(statusMap[item.id]===kind){
+    /* 同じ評価の再タップ：直前の評価を取り消し、履歴を1つ巻き戻す（管理会計サイトと同等） */
+    const h=gradeHist[item.id]||[];
+    h.pop();
+    const last=h[h.length-1];
+    if(last){ statusMap[item.id]=last.g; syncMarkFromHist(item.id); }
+    else{ delete statusMap[item.id]; delete markInfo[item.id]; delete gradeHist[item.id]; }
+  }else{
+    statusMap[item.id]=kind;
+    recordMark(item.id,kind);
+  }
   save(); refreshStats(); renderCard();
   if(autoNext&&statusMap[item.id]) go(1);
   if(testMode&&testIds.length&&testIds.every(id=>statusMap[id])) showTestResult();
@@ -1427,7 +1436,7 @@ btnReset.addEventListener('click',()=>{
   }
   clearTimeout(resetTimer);
   btnReset.classList.remove('armed'); btnReset.textContent='進捗をリセット';
-  statusMap={}; stars={}; markInfo={}; studyLog={}; lastItemId=null;
+  statusMap={}; stars={}; markInfo={}; gradeHist={}; studyLog={}; lastItemId=null;
   dueMode=false; btnDue.classList.remove('active');
   testMode=false; testIds=[]; testResultPanel.style.display='none'; updateTestUI(); stopSpeech();
   save(); refreshStats(); buildList();
@@ -1471,9 +1480,38 @@ function addDaysStr(dateStr,n){
 function isDateStr(s){ return typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s); }
 
 /* ---- 1. 復習スケジュール＋学習記録 ---- */
+/* 復習間隔の段階化（管理会計サイトと同等）：△は3日後、◎は連続回数に応じて7日→14日→30日 */
+function stagedInterval(hist){
+  const last=hist[hist.length-1];
+  if(!last) return 7;
+  if(last.g==='retry') return 3;
+  let s=0;
+  for(let i=hist.length-1;i>=0;i--){ if(hist[i].g==='got') s++; else break; }
+  return s>=3?30:(s===2?14:7);
+}
+/* 評価履歴の末尾から markInfo（最新評価日と復習期限）を再構成する */
+function syncMarkFromHist(id){
+  const h=gradeHist[id]||[];
+  const last=h[h.length-1];
+  if(!last||!isDateStr(last.d)){ delete markInfo[id]; return; }
+  markInfo[id]={d:last.d, due:addDaysStr(last.d, stagedInterval(h)), s:last.g};
+}
+/* 旧データ移行：履歴がない問題は、現在の評価と markInfo の日付から履歴を1件だけ合成する。
+   既存の markInfo.due は再計算しない（移行で復習期限が変わらないようにするため） */
+function migrateGradeHist(){
+  Object.keys(statusMap).forEach(id=>{
+    if(!Array.isArray(gradeHist[id])||!gradeHist[id].length){
+      const mi=markInfo[id];
+      gradeHist[id]=[{g:statusMap[id], d:(mi&&isDateStr(mi.d))?mi.d:''}];
+    }
+  });
+}
 function recordMark(id,kind){
   const today=todayStr();
-  markInfo[id]={d:today, due:addDaysStr(today, kind==='retry'?1:7), s:kind};
+  const h=(gradeHist[id]=gradeHist[id]||[]);
+  h.push({g:kind,d:today});
+  if(h.length>8) h.splice(0,h.length-8);
+  syncMarkFromHist(id);
   if(!Array.isArray(studyLog[today])) studyLog[today]=[];
   if(!studyLog[today].includes(id)) studyLog[today].push(id);
 }
@@ -1540,7 +1578,7 @@ function renderChapterBoard(){
 /* ---- 4. 成績のバックアップ ---- */
 function sanitizeState(st){
   if(!st||typeof st!=='object'||Array.isArray(st)) return null;
-  const out={status:{},stars:{},markInfo:{},studyLog:{},ch:st.ch!=null?st.ch:'all',
+  const out={status:{},stars:{},markInfo:{},gradeHist:{},studyLog:{},ch:st.ch!=null?st.ch:'all',
     ranks:Array.isArray(st.ranks)?st.ranks.filter(r=>RANKS.includes(r)):null,
     st:STATUS_DEFS.some(d=>d[0]===st.st)?st.st:'all',
     kind:KIND_DEFS.some(d=>d[0]===st.kind)?st.kind:'all',
@@ -1558,6 +1596,13 @@ function sanitizeState(st){
       if(ALL_IDS.has(id)&&mi&&isDateStr(mi.d)&&isDateStr(mi.due)&&(mi.s==='got'||mi.s==='retry')) out.markInfo[id]={d:mi.d,due:mi.due,s:mi.s};
     });
   }
+  if(st.gradeHist&&typeof st.gradeHist==='object'){
+    Object.keys(st.gradeHist).forEach(id=>{
+      if(!ALL_IDS.has(id)||!Array.isArray(st.gradeHist[id])) return;
+      const arr=st.gradeHist[id].filter(e=>e&&(e.g==='got'||e.g==='retry')).map(e=>({g:e.g,d:isDateStr(e.d)?e.d:''})).slice(-8);
+      if(arr.length) out.gradeHist[id]=arr;
+    });
+  }
   if(st.studyLog&&typeof st.studyLog==='object'){
     Object.keys(st.studyLog).forEach(d=>{
       if(isDateStr(d)&&Array.isArray(st.studyLog[d])) out.studyLog[d]=[...new Set(st.studyLog[d].filter(id=>ALL_IDS.has(id)))];
@@ -1569,6 +1614,7 @@ function handleImportObject(st){
   const clean=sanitizeState(st);
   if(!clean){ if(backupMsg) backupMsg.textContent='読み込みに失敗しました：ファイルの形式が正しくありません。'; return false; }
   statusMap=clean.status; stars=clean.stars; markInfo=clean.markInfo; studyLog=clean.studyLog; lastItemId=clean.lastId;
+  gradeHist=clean.gradeHist||{}; migrateGradeHist();
   if(clean.ranks&&clean.ranks.length){
     activeRanks=new Set(clean.ranks);
     rankRow.querySelectorAll('.rank-chip').forEach(c=>c.classList.toggle('active',activeRanks.has(c.dataset.rank)));
@@ -1735,7 +1781,8 @@ mark = function(kind){ _origMark(kind); updateTestLayout(); };
   if(st){
     statusMap=st.status||{}; stars=st.stars||{};
     const cleanInit=sanitizeState(st);
-    if(cleanInit){ markInfo=cleanInit.markInfo; studyLog=cleanInit.studyLog; lastItemId=cleanInit.lastId; }
+    if(cleanInit){ markInfo=cleanInit.markInfo; studyLog=cleanInit.studyLog; lastItemId=cleanInit.lastId; gradeHist=cleanInit.gradeHist||{}; }
+    migrateGradeHist();
     if(Array.isArray(st.ranks)&&st.ranks.length){
       activeRanks=new Set(st.ranks.filter(r=>RANKS.includes(r)));
       if(!activeRanks.size) activeRanks=new Set(RANKS);
