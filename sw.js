@@ -1,4 +1,6 @@
-const CACHE_NAME = 'zaimu-quiz-v1';
+// 財務会計論 一問一答 オフライン対応 Service Worker
+// HTML（ナビゲーション）はネットワーク優先（更新を届けるため。失敗時はキャッシュにフォールバック）、それ以外は cache-first
+const CACHE_NAME = 'zaimu-quiz-v2';
 const PRECACHE_URLS = [
   './',
   './index.html'
@@ -26,6 +28,26 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const accept = event.request.headers.get('accept') || '';
+  const isHtml = event.request.mode === 'navigate' || accept.indexOf('text/html') !== -1;
+  if (isHtml) {
+    // ネットワーク優先：最新を取得できたらそれを返し、キャッシュも更新する。失敗時はキャッシュにフォールバック
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        if (response && response.status === 200 && (response.type === 'basic' || response.type === 'default')) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() =>
+        caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          return caches.match('./index.html');
+        })
+      )
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
