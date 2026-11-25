@@ -251,6 +251,7 @@
   .ch-comment p{margin:0;padding:0 12px 12px;font-size:12.5px;line-height:1.8;color:var(--ink-2);}
   .ch-comment summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:9px;}
   .star-line{margin-top:10px;padding:7px 10px;border-radius:6px;background:rgba(184,146,74,0.12);font-size:12px;line-height:1.6;color:var(--ink-2);}
+  .card-chapter{margin-top:10px;font-size:13px;font-weight:700;color:var(--ink);letter-spacing:.02em;}
   .star-line b{color:var(--gold);letter-spacing:0.05em;}
   .card-hint{
     text-align:center;
@@ -444,6 +445,7 @@
             <div class="mode-tag q" id="modeTag">問題</div>
           </div>
         </div>
+        <div class="card-chapter" id="cardChapter"></div>
         <div class="star-line" id="starLine" style="display:none;"></div>
         <div class="card-body question" id="cardBody">読み込み中...</div>
         <div class="wm-box" id="wmBox" style="display:none;"></div>
@@ -1198,7 +1200,8 @@ const DATA = [
 const $ = id => document.getElementById(id);
 const chapterSelect=$('chapterSelect'), rankRow=$('rankRow'), kindRow=$('kindRow'), statusRow=$('statusRow'), searchBox=$('searchBox');
 const chapterTitleMeta=$('chapterTitleMeta'), chapterCountMeta=$('chapterCountMeta');
-const chComment=$('chComment'), chCommentTitle=$('chCommentTitle'), chCommentText=$('chCommentText'), starLine=$('starLine');
+const chComment=$('chComment'), chCommentTitle=$('chCommentTitle'), chCommentText=$('chCommentText'), starLine=$('starLine'), cardChapter=$('cardChapter');
+const ITEM_CH={}; DATA.forEach(c=>c.items.forEach(it=>{ITEM_CH[it.id]=c;}));
 const card=$('card'), rankBadge=$('rankBadge'), cardId=$('cardId'), modeTag=$('modeTag'), cardBody=$('cardBody');
 const commentBox=$('commentBox'), wmBox=$('wmBox'), cardHint=$('cardHint'), progressFill=$('progressFill'), progressCount=$('progressCount');
 const btnPrev=$('btnPrev'), btnNext=$('btnNext'), btnShuffle=$('btnShuffle'), selfCheck=$('selfCheck');
@@ -1367,6 +1370,7 @@ searchBox.addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=se
 /* ---- カード表示 ---- */
 function renderCard(){
   if(currentList.length===0){
+    cardChapter.textContent='';
     cardId.textContent=''; rankBadge.textContent='-'; rankBadge.className='rank-badge D';
     modeTag.textContent='該当なし'; modeTag.className='mode-tag q';
     cardBody.className='card-body question';
@@ -1381,6 +1385,8 @@ function renderCard(){
   lastItemId=item.id;
   btnStar.style.visibility='visible'; btnSpeak.style.visibility='visible';
   btnStar.textContent=stars[item.id]?'★':'☆'; btnStar.classList.toggle('on',!!stars[item.id]);
+  const itemCh=ITEM_CH[item.id];
+  cardChapter.textContent=itemCh?('第'+itemCh.ch+'章　'+itemCh.title):'';
   cardId.textContent=(item.label||('論証'+item.id))+(randomMode?'　🎲':'');
   rankBadge.textContent=item.rank; rankBadge.className='rank-badge '+item.rank;
   renderStars(item);
